@@ -22,6 +22,71 @@ export type FormattedDateTime = {
 }
 
 /** Parse BSE DT_TM string without timezone conversion. */
+import type { BseTimeFilters } from '@/types/bseAnnouncement'
+
+const KOLKATA_TIMEZONE = 'Asia/Kolkata'
+
+export function getKolkataBseTimestamps(date: Date = new Date()): BseTimeFilters {
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: KOLKATA_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  })
+
+  const parts = formatter.formatToParts(date)
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? '0'
+
+  const year = get('year')
+  const month = get('month')
+  const day = get('day')
+  const hour = Number.parseInt(get('hour'), 10)
+  const minute = Number.parseInt(get('minute'), 10)
+  const second = Number.parseInt(get('second'), 10)
+
+  return {
+    Hr: String(hour === 24 ? 0 : hour),
+    Min: String(minute),
+    Sec: String(second),
+    Tradedt: `${year}${month}${day}`,
+  }
+}
+
+/** Values for HTML date/time inputs from BSE filters. */
+export function bseFiltersToInputValues(filters: BseTimeFilters): {
+  date: string
+  time: string
+} {
+  const year = filters.Tradedt.slice(0, 4)
+  const month = filters.Tradedt.slice(4, 6)
+  const day = filters.Tradedt.slice(6, 8)
+  const hour = filters.Hr.padStart(2, '0')
+  const minute = filters.Min.padStart(2, '0')
+  const second = filters.Sec.padStart(2, '0')
+
+  return {
+    date: `${year}-${month}-${day}`,
+    time: `${hour}:${minute}:${second}`,
+  }
+}
+
+export function inputValuesToBseFilters(date: string, time: string): BseTimeFilters {
+  const [year, month, day] = date.split('-')
+  const [hour = '0', minute = '0', second = '0'] = time.split(':')
+
+  return {
+    Hr: String(Number.parseInt(hour, 10)),
+    Min: String(Number.parseInt(minute, 10)),
+    Sec: String(Number.parseInt(second, 10)),
+    Tradedt: `${year}${month}${day}`,
+  }
+}
+
 export function formatBseDateTime(dtTm: string): FormattedDateTime {
   const trimmed = dtTm.trim()
   const match = trimmed.match(BSE_DT_TM_PATTERN)
@@ -38,24 +103,6 @@ export function formatBseDateTime(dtTm: string): FormattedDateTime {
   return {
     date: `${day} ${monthName} ${yearStr}`,
     time: `${hourStr}:${minuteStr}:${secondStr} ${ampmStr.toUpperCase()}`,
-  }
-}
-
-export function buildBseRequestTimestamps(date: Date = new Date()): {
-  Hr: string
-  Min: string
-  Sec: string
-  Tradedt: string
-} {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-
-  return {
-    Hr: String(date.getHours()),
-    Min: String(date.getMinutes()),
-    Sec: String(date.getSeconds()),
-    Tradedt: `${year}${month}${day}`,
   }
 }
 

@@ -1,70 +1,42 @@
-import { env } from '@/config/env'
-import type { BseAnnouncement, BseAnnouncementRequest } from '@/types/bseAnnouncement'
+import { api } from '@/services/api'
+import type { BseAnnouncement, BseTimeFilters } from '@/types/bseAnnouncement'
 import { BseApiError } from '@/types/bseAnnouncement'
-import { buildBseRequestTimestamps } from '@/utils/bseAnnouncement'
 
-function buildRequestBody(): BseAnnouncementRequest {
-  const timestamps = buildBseRequestTimestamps()
-
-  return {
-    Username: env.bse.username,
-    Password: env.bse.password,
-    ...timestamps,
-  }
-}
-
-function isLikelyCorsError(error: unknown): boolean {
-  if (!(error instanceof TypeError)) return false
-
-  const message = error.message.toLowerCase()
-  return (
-    message.includes('failed to fetch') ||
-    message.includes('networkerror') ||
-    message.includes('network request failed')
-  )
-}
-
-function normalizeAnnouncements(payload: unknown): BseAnnouncement[] {
-  if (Array.isArray(payload)) {
-    return payload as BseAnnouncement[]
-  }
-
-  if (
-    payload &&
-    typeof payload === 'object' &&
-    'data' in payload &&
-    Array.isArray((payload as { data: unknown }).data)
-  ) {
-    return (payload as { data: BseAnnouncement[] }).data
-  }
-
-  throw new BseApiError('Unexpected response format from BSE API.')
+type BseAnnouncementsApiResponse = {
+  success: boolean
+  message?: string
+  data?: BseAnnouncement[]
 }
 
 export async function fetchBseAnnouncements(
-  signal?: AbortSignal,
+  options?: {
+    signal?: AbortSignal
+    timeFilters?: BseTimeFilters
+  },
 ): Promise<BseAnnouncement[]> {
-  const requestBody = buildRequestBody()
+  const requestStarted = performance.now()
+  const { signal, timeFilters } = options ?? {}
 
   try {
-    const response = await fetch(env.bse.apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-      signal,
-    })
+    const response = await api.post<BseAnnouncementsApiResponse>(
+      '/bse/corporate-announcements',
+      timeFilters,
+      { signal },
+    )
 
-    if (!response.ok) {
-      throw new BseApiError(`BSE API responded with status ${response.status}.`, {
-        status: response.status,
-      })
+    if (!response.success || !Array.isArray(response.data)) {
+      throw new BseApiError(
+        response.message || 'Unable to fetch the latest BSE announcements. Please try again.',
+      )
     }
 
-    const payload: unknown = await response.json()
-    return normalizeAnnouncements(payload)
+    if (import.meta.env.DEV) {
+      const totalMs = Math.round(performance.now() - requestStarted)
+      const mode = timeFilters ? 'custom filters' : 'server time'
+      console.info(`BSE announcements fetch (${mode}) — frontend total: ${totalMs} ms`)
+    }
+
+    return response.data
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw error
@@ -74,21 +46,9 @@ export async function fetchBseAnnouncements(
       throw error
     }
 
-    if (isLikelyCorsError(error)) {
-      throw new BseApiError(
-        'Unable to reach the BSE API from the browser due to CORS restrictions. ' +
-          'The request was blocked before a response could be received. ' +
-          'Move this call behind a backend proxy when deploying beyond this POC.',
-        { isCorsError: true },
-      )
-    }
-
+    const apiError = error as { message?: string }
     throw new BseApiError(
-      error instanceof Error ? error.message : 'An unexpected error occurred while fetching announcements.',
+      apiError.message || 'Unable to fetch the latest BSE announcements. Please try again.',
     )
   }
-}
-
-export function getBseRequestPreview(): BseAnnouncementRequest {
-  return buildRequestBody()
 }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { AnalyzeModal } from '@/components/announcements/AnalyzeModal'
 import { HeadlineTooltip } from '@/components/announcements/HeadlineTooltip'
+import { Spinner } from '@/components/ui/Spinner'
 import type { BseAnnouncement } from '@/types/bseAnnouncement'
 import {
   formatAnnouncementType,
@@ -35,10 +36,16 @@ const stickyActionCellClass =
 
 export function AnnouncementsTable({ announcements }: AnnouncementsTableProps) {
   const [selectedRecord, setSelectedRecord] = useState<BseAnnouncement | null>(null)
+  const [analyzingKey, setAnalyzingKey] = useState<string | null>(null)
 
-  const handleAnalyze = (record: BseAnnouncement) => {
-    console.info('Analyze requested for announcement:', record)
+  const handleAnalyze = (record: BseAnnouncement, rowKey: string) => {
+    setAnalyzingKey(rowKey)
     setSelectedRecord(record)
+  }
+
+  const handleCloseModal = () => {
+    setSelectedRecord(null)
+    setAnalyzingKey(null)
   }
 
   if (announcements.length === 0) {
@@ -119,11 +126,21 @@ export function AnnouncementsTable({ announcements }: AnnouncementsTableProps) {
                     <td className={stickyActionCellClass}>
                       <button
                         type="button"
-                        onClick={() => handleAnalyze(record)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                        onClick={() => handleAnalyze(record, rowKey)}
+                        disabled={analyzingKey === rowKey}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:border-blue-300 hover:bg-blue-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        <AnalyzeIcon />
-                        Analyze
+                        {analyzingKey === rowKey ? (
+                          <>
+                            <Spinner className="h-3.5 w-3.5 text-blue-700" />
+                            Analyzing…
+                          </>
+                        ) : (
+                          <>
+                            <AnalyzeIcon />
+                            Analyze
+                          </>
+                        )}
                       </button>
                     </td>
                   </tr>
@@ -134,7 +151,7 @@ export function AnnouncementsTable({ announcements }: AnnouncementsTableProps) {
         </div>
       </div>
 
-      <AnalyzeModal record={selectedRecord} onClose={() => setSelectedRecord(null)} />
+      <AnalyzeModal record={selectedRecord} onClose={handleCloseModal} />
     </>
   )
 }

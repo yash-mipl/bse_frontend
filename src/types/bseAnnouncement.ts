@@ -17,9 +17,8 @@ export type BseAnnouncement = {
   Tradedate: string
 }
 
-export type BseAnnouncementRequest = {
-  Username: string
-  Password: string
+/** Optional BSE request time filters sent from the frontend. */
+export type BseTimeFilters = {
   Hr: string
   Min: string
   Sec: string
@@ -27,13 +26,11 @@ export type BseAnnouncementRequest = {
 }
 
 export class BseApiError extends Error {
-  readonly isCorsError: boolean
   readonly status?: number
 
-  constructor(message: string, options?: { isCorsError?: boolean; status?: number }) {
+  constructor(message: string, options?: { status?: number }) {
     super(message)
     this.name = 'BseApiError'
-    this.isCorsError = options?.isCorsError ?? false
     this.status = options?.status
   }
 }

@@ -1,5 +1,6 @@
 import { AnnouncementsTable } from '@/components/announcements/AnnouncementsTable'
 import { AnnouncementsTableSkeleton } from '@/components/announcements/AnnouncementsTableSkeleton'
+import { AnnouncementTimeFilters } from '@/components/announcements/AnnouncementTimeFilters'
 import { ErrorAlert } from '@/components/announcements/ErrorAlert'
 import { FetchLatestButton } from '@/components/announcements/FetchLatestButton'
 import { useBseAnnouncements } from '@/hooks/useBseAnnouncements'
@@ -13,8 +14,13 @@ export function AnnouncementsPage() {
     isInitialLoading,
     isRefreshing,
     error,
-    isCorsError,
     refreshSuccess,
+    useCustomTime,
+    filterDate,
+    filterTime,
+    setUseCustomTime,
+    setFilterDate,
+    setFilterTime,
     fetchLatest,
   } = useBseAnnouncements()
 
@@ -47,9 +53,21 @@ export function AnnouncementsPage() {
         </div>
       </div>
 
+      <div className="mb-4">
+        <AnnouncementTimeFilters
+          enabled={useCustomTime}
+          onEnabledChange={setUseCustomTime}
+          filterDate={filterDate}
+          filterTime={filterTime}
+          onFilterDateChange={setFilterDate}
+          onFilterTimeChange={setFilterTime}
+          disabled={isInitialLoading || isRefreshing}
+        />
+      </div>
+
       {error && (
         <div className="mb-4">
-          <ErrorAlert message={error} isCorsError={isCorsError} />
+          <ErrorAlert message={error} />
         </div>
       )}
 

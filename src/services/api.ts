@@ -24,8 +24,9 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
     }
 
     try {
-      const payload = (await response.json()) as { message?: string }
+      const payload = (await response.json()) as { message?: string; error?: string }
       if (payload.message) error.message = payload.message
+      else if (payload.error) error.message = payload.error
     } catch {
       // Response body is not JSON — keep default message
     }
