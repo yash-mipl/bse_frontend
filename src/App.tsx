@@ -1,10 +1,10 @@
 import { Layout } from '@/components/layout/Layout'
-import { HomePage } from '@/pages/HomePage'
+import { AnnouncementsPage } from '@/pages/AnnouncementsPage'
 
 function App() {
   return (
     <Layout>
-      <HomePage />
+      <AnnouncementsPage />
     </Layout>
   )
 }
