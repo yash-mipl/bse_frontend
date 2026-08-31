@@ -24,3 +24,12 @@
     min-height: 100vh;
   }
 }
+
+@keyframes highlight-fade {
+  0% {
+    background-color: rgb(209 250 229 / 0.9);
+  }
+  100% {
+    background-color: rgb(236 253 245 / 0.3);
+  }
+}

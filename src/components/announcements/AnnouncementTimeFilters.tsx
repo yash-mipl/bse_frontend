@@ -46,7 +46,7 @@ export function AnnouncementTimeFilters({
         <div>
           <h2 className="text-sm font-semibold text-slate-900">Time filter</h2>
           <p className="mt-0.5 text-xs text-slate-500">
-            Optional — leave off to use current server time (Asia/Kolkata)
+            Optional — off uses live current time; on lets you pick a specific date &amp; time
           </p>
         </div>
 

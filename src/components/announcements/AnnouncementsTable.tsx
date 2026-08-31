@@ -4,6 +4,7 @@ import { AnalyzeModal } from '@/components/announcements/AnalyzeModal'
 import { HeadlineTooltip } from '@/components/announcements/HeadlineTooltip'
 import { Spinner } from '@/components/ui/Spinner'
 import type { BseAnnouncement } from '@/types/bseAnnouncement'
+import { getAnnouncementKey } from '@/utils/announcementSync'
 import {
   formatAnnouncementType,
   formatBseDateTime,
@@ -12,6 +13,7 @@ import {
 
 type AnnouncementsTableProps = {
   announcements: BseAnnouncement[]
+  newRecordKeys?: Set<string>
 }
 
 function AnalyzeIcon() {
@@ -34,7 +36,10 @@ const stickyActionHeaderClass =
 const stickyActionCellClass =
   'sticky right-0 z-10 bg-white px-4 py-3 shadow-[-4px_0_8px_-4px_rgba(15,23,42,0.08)] group-hover:bg-slate-50'
 
-export function AnnouncementsTable({ announcements }: AnnouncementsTableProps) {
+export function AnnouncementsTable({
+  announcements,
+  newRecordKeys = new Set(),
+}: AnnouncementsTableProps) {
   const [selectedRecord, setSelectedRecord] = useState<BseAnnouncement | null>(null)
   const [analyzingKey, setAnalyzingKey] = useState<string | null>(null)
 
@@ -53,7 +58,7 @@ export function AnnouncementsTable({ announcements }: AnnouncementsTableProps) {
       <div className="rounded-xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
         <p className="text-base font-medium text-slate-700">No corporate announcements found.</p>
         <p className="mt-1 text-sm text-slate-500">
-          Try fetching again to load the latest BSE announcements.
+          Waiting for the next update from BSE…
         </p>
       </div>
     )
@@ -88,18 +93,28 @@ export function AnnouncementsTable({ announcements }: AnnouncementsTableProps) {
               </tr>
             </thead>
             <tbody>
-              {announcements.map((record, index) => {
+              {announcements.map((record) => {
+                const rowKey = getAnnouncementKey(record)
+                const isNew = newRecordKeys.has(rowKey)
                 const { date, time } = formatBseDateTime(record.DT_TM)
                 const { display, isTruncated } = truncateWords(record.HeadLine, 30)
-                const rowKey = `${record.SCRIP_CD}-${record.DT_TM}-${index}`
 
                 return (
                   <tr
                     key={rowKey}
-                    className="group border-b border-slate-100 transition-colors last:border-b-0 hover:bg-slate-50"
+                    className={`group border-b border-slate-100 transition-colors last:border-b-0 hover:bg-slate-50 ${
+                      isNew ? 'animate-[highlight-fade_4s_ease-out] bg-emerald-50/80' : ''
+                    }`}
                   >
                     <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-slate-900">
-                      {record.SCRIP_CD}
+                      <div className="flex items-center gap-2">
+                        {isNew && (
+                          <span className="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                            New
+                          </span>
+                        )}
+                        {record.SCRIP_CD}
+                      </div>
                     </td>
                     <td className="min-w-[180px] px-4 py-3 text-sm text-slate-800">
                       {record.CompanyName}
@@ -123,7 +138,7 @@ export function AnnouncementsTable({ announcements }: AnnouncementsTableProps) {
                     <td className="min-w-[120px] px-4 py-3 text-sm text-slate-700">
                       {record.TypeofMeeting.trim() || '—'}
                     </td>
-                    <td className={stickyActionCellClass}>
+                    <td className={`${stickyActionCellClass} ${isNew ? 'bg-emerald-50/80 group-hover:bg-emerald-50' : ''}`}>
                       <button
                         type="button"
                         onClick={() => handleAnalyze(record, rowKey)}

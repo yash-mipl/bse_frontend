@@ -1,3 +1,5 @@
+import type { BseTimeFilters } from '@/types/bseAnnouncement'
+
 const MONTH_NAMES = [
   'Jan',
   'Feb',
@@ -20,9 +22,6 @@ export type FormattedDateTime = {
   date: string
   time: string
 }
-
-/** Parse BSE DT_TM string without timezone conversion. */
-import type { BseTimeFilters } from '@/types/bseAnnouncement'
 
 const KOLKATA_TIMEZONE = 'Asia/Kolkata'
 
@@ -47,14 +46,23 @@ export function getKolkataBseTimestamps(date: Date = new Date()): BseTimeFilters
   const day = get('day')
   const hour = Number.parseInt(get('hour'), 10)
   const minute = Number.parseInt(get('minute'), 10)
-  const second = Number.parseInt(get('second'), 10)
 
   return {
     Hr: String(hour === 24 ? 0 : hour),
     Min: String(minute),
-    Sec: String(second),
+    // BSE API is unreliable with live seconds — use start of minute
+    Sec: '0',
     Tradedt: `${year}${month}${day}`,
   }
+}
+
+/** Build timestamps for the current Kolkata minute minus an offset (for BSE fallback). */
+export function getKolkataBseTimestampsForMinuteOffset(
+  minuteOffset: number = 0,
+  baseDate: Date = new Date(),
+): BseTimeFilters {
+  const adjusted = new Date(baseDate.getTime() + minuteOffset * 60_000)
+  return getKolkataBseTimestamps(adjusted)
 }
 
 /** Values for HTML date/time inputs from BSE filters. */
@@ -87,6 +95,7 @@ export function inputValuesToBseFilters(date: string, time: string): BseTimeFilt
   }
 }
 
+/** Parse BSE DT_TM string without timezone conversion. */
 export function formatBseDateTime(dtTm: string): FormattedDateTime {
   const trimmed = dtTm.trim()
   const match = trimmed.match(BSE_DT_TM_PATTERN)
