@@ -1,20 +1,19 @@
-import { useState } from 'react'
+import { useState } from "react";
 
-import { AnalyzeModal } from '@/components/announcements/AnalyzeModal'
-import { HeadlineTooltip } from '@/components/announcements/HeadlineTooltip'
-import { Spinner } from '@/components/ui/Spinner'
-import type { BseAnnouncement } from '@/types/bseAnnouncement'
-import { getAnnouncementKey } from '@/utils/announcementSync'
+import { AnalyzeModal } from "@/components/announcements/AnalyzeModal";
+import { HeadlineTooltip } from "@/components/announcements/HeadlineTooltip";
+import { Spinner } from "@/components/ui/Spinner";
+import type { BseAnnouncement } from "@/types/bseAnnouncement";
+import { getAnnouncementKey } from "@/utils/announcementSync";
 import {
-  formatAnnouncementType,
   formatBseDateTime,
   truncateWords,
-} from '@/utils/bseAnnouncement'
+} from "@/utils/bseAnnouncement";
 
 type AnnouncementsTableProps = {
-  announcements: BseAnnouncement[]
-  newRecordKeys?: Set<string>
-}
+  announcements: BseAnnouncement[];
+  newRecordKeys?: Set<string>;
+};
 
 function AnalyzeIcon() {
   return (
@@ -27,41 +26,45 @@ function AnalyzeIcon() {
     >
       <path d="M15.98 1.804a1 1 0 00-1.96 0l-.24 1.192a1 1 0 01-.784.785l-1.192.238a1 1 0 000 1.962l1.192.238a1 1 0 01.785.785l.238 1.192a1 1 0 001.962 0l.238-1.192a1 1 0 01.785-.785l1.192-.238a1 1 0 000-1.962l-1.192-.238a1 1 0 01-.785-.785l-.238-1.192zM6.949 6.285a1 1 0 00-1.898 0l-.683 2.051a1 1 0 01-.633.633l-2.051.683a1 1 0 000 1.898l2.051.684a1 1 0 01.633.632l.683 2.051a1 1 0 001.898 0l.683-2.051a1 1 0 01.633-.633l2.051-.683a1 1 0 000-1.898l-2.051-.683a1 1 0 01-.633-.633l-.683-2.051zM13.949 13.285a1 1 0 00-1.898 0l-.184.551a1 1 0 01-.632.633l-.551.183a1 1 0 000 1.898l.551.183a1 1 0 01.633.633l.183.551a1 1 0 001.898 0l.184-.551a1 1 0 01.632-.633l.551-.183a1 1 0 000-1.898l-.551-.184a1 1 0 01-.633-.632l-.183-.551z" />
     </svg>
-  )
+  );
 }
 
 const stickyActionHeaderClass =
-  'sticky top-0 right-0 z-40 bg-slate-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 shadow-[-4px_0_8px_-4px_rgba(15,23,42,0.12)]'
+  "sticky top-0 right-0 z-40 bg-slate-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 shadow-[-4px_0_8px_-4px_rgba(15,23,42,0.12)]";
 
 const stickyActionCellClass =
-  'sticky right-0 z-10 bg-white px-4 py-3 shadow-[-4px_0_8px_-4px_rgba(15,23,42,0.08)] group-hover:bg-slate-50'
+  "sticky right-0 z-10 bg-white px-4 py-3 shadow-[-4px_0_8px_-4px_rgba(15,23,42,0.08)] group-hover:bg-slate-50";
 
 export function AnnouncementsTable({
   announcements,
   newRecordKeys = new Set(),
 }: AnnouncementsTableProps) {
-  const [selectedRecord, setSelectedRecord] = useState<BseAnnouncement | null>(null)
-  const [analyzingKey, setAnalyzingKey] = useState<string | null>(null)
+  const [selectedRecord, setSelectedRecord] = useState<BseAnnouncement | null>(
+    null,
+  );
+  const [analyzingKey, setAnalyzingKey] = useState<string | null>(null);
 
   const handleAnalyze = (record: BseAnnouncement, rowKey: string) => {
-    setAnalyzingKey(rowKey)
-    setSelectedRecord(record)
-  }
+    setAnalyzingKey(rowKey);
+    setSelectedRecord(record);
+  };
 
   const handleCloseModal = () => {
-    setSelectedRecord(null)
-    setAnalyzingKey(null)
-  }
+    setSelectedRecord(null);
+    setAnalyzingKey(null);
+  };
 
   if (announcements.length === 0) {
     return (
       <div className="rounded-xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
-        <p className="text-base font-medium text-slate-700">No corporate announcements found.</p>
+        <p className="text-base font-medium text-slate-700">
+          No corporate announcements found.
+        </p>
         <p className="mt-1 text-sm text-slate-500">
           Waiting for the next update from BSE…
         </p>
       </div>
-    )
+    );
   }
 
   return (
@@ -84,26 +87,31 @@ export function AnnouncementsTable({
                   Headline
                 </th>
                 <th className="sticky top-0 z-20 bg-slate-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                  Announcement Type
+                  Descriptor
                 </th>
                 <th className="sticky top-0 z-20 bg-slate-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                  Meeting Type
+                  View PDF
                 </th>
                 <th className={stickyActionHeaderClass}>Action</th>
               </tr>
             </thead>
             <tbody>
               {announcements.map((record) => {
-                const rowKey = getAnnouncementKey(record)
-                const isNew = newRecordKeys.has(rowKey)
-                const { date, time } = formatBseDateTime(record.DT_TM)
-                const { display, isTruncated } = truncateWords(record.HeadLine, 30)
+                const rowKey = getAnnouncementKey(record);
+                const isNew = newRecordKeys.has(rowKey);
+                const { date, time } = formatBseDateTime(record.DT_TM);
+                const { display, isTruncated } = truncateWords(
+                  record.HeadLine,
+                  30,
+                );
 
                 return (
                   <tr
                     key={rowKey}
                     className={`group border-b border-slate-100 transition-colors last:border-b-0 hover:bg-slate-50 ${
-                      isNew ? 'animate-[highlight-fade_4s_ease-out] bg-emerald-50/80' : ''
+                      isNew
+                        ? "animate-[highlight-fade_4s_ease-out] bg-emerald-50/80"
+                        : ""
                     }`}
                   >
                     <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-slate-900">
@@ -121,7 +129,9 @@ export function AnnouncementsTable({
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-sm">
                       <div className="font-medium text-slate-800">{date}</div>
-                      {time && <div className="text-xs text-slate-500">{time}</div>}
+                      {time && (
+                        <div className="text-xs text-slate-500">{time}</div>
+                      )}
                     </td>
                     <td className="min-w-[260px] max-w-sm px-4 py-3 text-sm text-slate-700">
                       {isTruncated ? (
@@ -133,12 +143,25 @@ export function AnnouncementsTable({
                       )}
                     </td>
                     <td className="min-w-[160px] px-4 py-3 text-sm text-slate-700">
-                      {formatAnnouncementType(record.TypeofAnnounce)}
+                      {record.Descriptor?.trim() || "—"}
                     </td>
-                    <td className="min-w-[120px] px-4 py-3 text-sm text-slate-700">
-                      {record.TypeofMeeting.trim() || '—'}
+                    <td className="min-w-[120px] whitespace-nowrap px-4 py-3 text-sm text-slate-700">
+                      {record.ATTACHMENTURL?.trim() ? (
+                        <a
+                          href={record.ATTACHMENTURL.trim()}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                        >
+                          View PDF
+                        </a>
+                      ) : (
+                        "—"
+                      )}
                     </td>
-                    <td className={`${stickyActionCellClass} ${isNew ? 'bg-emerald-50/80 group-hover:bg-emerald-50' : ''}`}>
+                    <td
+                      className={`${stickyActionCellClass} ${isNew ? "bg-emerald-50/80 group-hover:bg-emerald-50" : ""}`}
+                    >
                       <button
                         type="button"
                         onClick={() => handleAnalyze(record, rowKey)}
@@ -159,7 +182,7 @@ export function AnnouncementsTable({
                       </button>
                     </td>
                   </tr>
-                )
+                );
               })}
             </tbody>
           </table>
@@ -168,5 +191,5 @@ export function AnnouncementsTable({
 
       <AnalyzeModal record={selectedRecord} onClose={handleCloseModal} />
     </>
-  )
+  );
 }

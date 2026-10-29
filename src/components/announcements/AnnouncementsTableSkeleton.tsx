@@ -22,8 +22,8 @@ export function AnnouncementsTableSkeleton() {
                 'Company',
                 'Date & Time',
                 'Headline',
-                'Announcement Type',
-                'Meeting Type',
+                'Descriptor',
+                'View PDF',
                 'Action',
               ].map((label) => (
                 <th
