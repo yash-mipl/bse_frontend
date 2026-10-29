@@ -18,6 +18,23 @@ npm run dev
 
 Dev server: **http://localhost:5173** (opens automatically).
 
+## Chrome extension (maximize window + open PDFs)
+
+The helper extension lives inside this frontend repo:
+
+```text
+frontend/chrome-extension/
+```
+
+On a new PC:
+
+1. `cd frontend && npm install && npm run dev`
+2. Chrome → `chrome://extensions` → enable **Developer mode**
+3. **Load unpacked** → select `frontend/chrome-extension`
+4. Refresh `http://localhost:5173`
+
+Details: [chrome-extension/README.md](chrome-extension/README.md)
+
 ## Scripts
 
 | Command           | Description                          |
@@ -31,6 +48,7 @@ Dev server: **http://localhost:5173** (opens automatically).
 
 ```
 frontend/
+├── chrome-extension/       # Chrome helper (maximize + open PDFs)
 ├── public/                 # Static assets (copied as-is to dist/)
 ├── src/
 │   ├── assets/             # Images, fonts, etc. (imported in code)

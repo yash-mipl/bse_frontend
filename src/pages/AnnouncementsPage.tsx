@@ -97,6 +97,7 @@ export function AnnouncementsPage() {
           </p>
         </div>
       )}
+
     </section>
   )
 }

@@ -5,6 +5,7 @@ import {
   NEW_RECORD_HIGHLIGHT_MS,
   POLL_INTERVAL_MS,
 } from '@/config/announcements'
+import { useAutoOpenMatchingPdfs } from '@/hooks/useAutoOpenMatchingPdfs'
 import { fetchBseAnnouncements } from '@/services/bseAnnouncementService'
 import type { BseAnnouncement } from '@/types/bseAnnouncement'
 import {
@@ -42,12 +43,16 @@ export function useBseAnnouncements(): UseBseAnnouncementsResult {
   const [isInitialLoading, setIsInitialLoading] = useState(storedOnInit.length === 0)
   const [isUpdating, setIsUpdating] = useState(false)
   const [hasUpdateError, setHasUpdateError] = useState(false)
-  const [isPaused, setIsPaused] = useState(document.visibilityState === 'hidden')
+  const [isPaused, setIsPaused] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [newRecordKeys, setNewRecordKeys] = useState<Set<string>>(new Set())
   const [initialError, setInitialError] = useState<string | null>(null)
 
+  const { handleNewAnnouncements } = useAutoOpenMatchingPdfs()
+
   const announcementsRef = useRef(announcements)
+  const handleNewAnnouncementsRef = useRef(handleNewAnnouncements)
+  handleNewAnnouncementsRef.current = handleNewAnnouncements
   const isFetchingRef = useRef(false)
   const isMountedRef = useRef(true)
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -94,6 +99,10 @@ export function useBseAnnouncements(): UseBseAnnouncementsResult {
         MAX_ANNOUNCEMENTS,
       )
 
+      // Always run auto-open handler so the first sync can establish a baseline
+      // even when there are no local changes yet.
+      handleNewAnnouncementsRef.current(records, newKeys)
+
       if (hasChanges) {
         announcementsRef.current = records
         setAnnouncements(records)
@@ -108,7 +117,9 @@ export function useBseAnnouncements(): UseBseAnnouncementsResult {
 
   const scheduleNextPoll = useCallback(
     (delay: number = POLL_INTERVAL_MS) => {
-      if (!isMountedRef.current || document.visibilityState === 'hidden') return
+      // Keep polling even when the listing tab is hidden (e.g. user is viewing a PDF),
+      // so new matching PDFs can still auto-open in background tabs.
+      if (!isMountedRef.current) return
 
       clearPollTimeout()
       pollTimeoutRef.current = window.setTimeout(() => {
@@ -173,11 +184,6 @@ export function useBseAnnouncements(): UseBseAnnouncementsResult {
   pollRef.current = async () => {
     if (!isMountedRef.current) return
 
-    if (document.visibilityState === 'hidden') {
-      setIsPaused(true)
-      return
-    }
-
     setIsPaused(false)
 
     if (isFetchingRef.current) {
@@ -187,7 +193,7 @@ export function useBseAnnouncements(): UseBseAnnouncementsResult {
 
     await performFetch()
 
-    if (isMountedRef.current && document.visibilityState === 'visible') {
+    if (isMountedRef.current) {
       scheduleNextPoll()
     }
   }
@@ -197,7 +203,7 @@ export function useBseAnnouncements(): UseBseAnnouncementsResult {
 
     clearPollTimeout()
     void performFetch().finally(() => {
-      if (isMountedRef.current && document.visibilityState === 'visible') {
+      if (isMountedRef.current) {
         scheduleNextPoll()
       }
     })
@@ -207,19 +213,15 @@ export function useBseAnnouncements(): UseBseAnnouncementsResult {
     isMountedRef.current = true
 
     void performFetch().finally(() => {
-      if (isMountedRef.current && document.visibilityState === 'visible') {
+      if (isMountedRef.current) {
         scheduleNextPoll()
       }
     })
 
+    // On return to the listing tab, refresh immediately (sync already continues while hidden).
     const handleVisibilityChange = () => {
-      const hidden = document.visibilityState === 'hidden'
-      setIsPaused(hidden)
-
-      if (hidden) {
-        clearPollTimeout()
-        return
-      }
+      if (document.visibilityState !== 'visible' || !isMountedRef.current) return
+      if (isFetchingRef.current) return
 
       clearPollTimeout()
       void performFetch().finally(() => {
