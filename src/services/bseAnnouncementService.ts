@@ -1,19 +1,24 @@
 import { api } from '@/services/api'
 import type { BseAnnouncement, BseTimeFilters } from '@/types/bseAnnouncement'
 import { BseApiError } from '@/types/bseAnnouncement'
-import { getKolkataBseTimestampsForMinuteOffset } from '@/utils/bseAnnouncement'
+import { getKolkataBseTimestamps } from '@/utils/bseAnnouncement'
 
 type BseAnnouncementsApiResponse = {
   success: boolean
   message?: string
   data?: BseAnnouncement[]
+  meta?: {
+    fromCache?: boolean
+    bseApiMs?: number
+    backendTotalMs?: number
+  }
 }
 
-/** How many previous minutes to try when BSE returns an empty snapshot. */
-const MINUTE_FALLBACK_OFFSETS = [0, -1, -2, -3, -4, -5] as const
+/** Minutes the backend may walk back when the live snapshot is empty (cold start only). */
+const COLD_START_FALLBACK_MINUTES = 5
 
 async function fetchOnce(
-  timeFilters: BseTimeFilters,
+  timeFilters: BseTimeFilters & { fallbackMinutes?: number },
   signal?: AbortSignal,
 ): Promise<BseAnnouncement[]> {
   const response = await api.post<BseAnnouncementsApiResponse>(
@@ -28,51 +33,41 @@ async function fetchOnce(
     )
   }
 
+  if (import.meta.env.DEV && response.meta) {
+    console.info(
+      `BSE fetch — ${response.data.length} records — backend ${response.meta.backendTotalMs ?? '?'} ms` +
+        (response.meta.fromCache ? ' (cache)' : ` (BSE ${response.meta.bseApiMs ?? '?'} ms)`),
+    )
+  }
+
   return response.data
 }
 
 /**
  * Fetch BSE announcements using live Kolkata time.
- * Tries the current minute (Sec=0), then walks back minute-by-minute if BSE returns empty.
+ * Cold start can ask the backend to try previous minutes in one request.
+ * Steady polling uses the current minute only (fast path + backend cache).
  */
 export async function fetchBseAnnouncements(
   options: {
     signal?: AbortSignal
     timeFilters?: BseTimeFilters
+    /** When true, backend may walk back up to 5 minutes if live snapshot is empty. */
+    allowMinuteFallback?: boolean
   } = {},
 ): Promise<BseAnnouncement[]> {
-  const requestStarted = performance.now()
-  const { signal, timeFilters } = options
+  const { signal, timeFilters, allowMinuteFallback = false } = options
 
   try {
-    if (timeFilters) {
-      return await fetchOnce(timeFilters, signal)
-    }
+    const filters = timeFilters ?? getKolkataBseTimestamps()
 
-    for (const minuteOffset of MINUTE_FALLBACK_OFFSETS) {
-      if (signal?.aborted) {
-        throw new DOMException('Aborted', 'AbortError')
-      }
-
-      const filters = getKolkataBseTimestampsForMinuteOffset(minuteOffset)
-      const data = await fetchOnce(filters, signal)
-
-      if (data.length > 0) {
-        if (import.meta.env.DEV) {
-          const totalMs = Math.round(performance.now() - requestStarted)
-          console.info(
-            `BSE fetch OK (offset ${minuteOffset} min, Sec=0) — ${data.length} records — ${totalMs} ms`,
-          )
-        }
-        return data
-      }
-    }
-
-    if (import.meta.env.DEV) {
-      console.info('BSE fetch returned empty for all minute offsets')
-    }
-
-    return []
+    return await fetchOnce(
+      {
+        ...filters,
+        fallbackMinutes: allowMinuteFallback ? COLD_START_FALLBACK_MINUTES : 0,
+      },
+      signal,
+    )
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw error

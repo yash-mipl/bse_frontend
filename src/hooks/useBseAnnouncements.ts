@@ -129,23 +129,34 @@ export function useBseAnnouncements(): UseBseAnnouncementsResult {
     [clearPollTimeout],
   )
 
-  const performFetch = useCallback(async (): Promise<boolean> => {
-    if (isFetchingRef.current || !isMountedRef.current) return false
+  const performFetch = useCallback(async (options: { manual?: boolean } = {}): Promise<boolean> => {
+    if (!isMountedRef.current) return false
 
-    isFetchingRef.current = true
+    // Manual click may interrupt a silent background poll so the spinner can show.
+    if (isFetchingRef.current && options.manual !== true) return false
+
     abortControllerRef.current?.abort()
     const controller = new AbortController()
     abortControllerRef.current = controller
+    isFetchingRef.current = true
 
-    setIsUpdating(true)
+    const showUpdating =
+      options.manual === true || announcementsRef.current.length === 0
+
+    if (showUpdating) {
+      setIsUpdating(true)
+    }
     setHasUpdateError(false)
 
     try {
+      // Cold start / empty list: one backend request with minute fallbacks.
+      // Steady polling: current minute only (backend short cache ≈ instant).
       const apiRecords = await fetchBseAnnouncements({
         signal: controller.signal,
+        allowMinuteFallback: !hasFetchedOnceRef.current,
       })
 
-      if (!isMountedRef.current) return false
+      if (!isMountedRef.current || abortControllerRef.current !== controller) return false
 
       applySyncResult(apiRecords)
       setLastUpdated(new Date())
@@ -157,7 +168,7 @@ export function useBseAnnouncements(): UseBseAnnouncementsResult {
         return false
       }
 
-      if (!isMountedRef.current) return false
+      if (!isMountedRef.current || abortControllerRef.current !== controller) return false
 
       setHasUpdateError(true)
 
@@ -167,14 +178,16 @@ export function useBseAnnouncements(): UseBseAnnouncementsResult {
 
       return false
     } finally {
+      // Only the latest in-flight request clears loading flags (avoids race on abort).
       if (abortControllerRef.current === controller) {
         abortControllerRef.current = null
-      }
-
-      if (isMountedRef.current) {
-        isFetchingRef.current = false
-        setIsUpdating(false)
-        setIsInitialLoading(false)
+        if (isMountedRef.current) {
+          isFetchingRef.current = false
+          if (showUpdating) {
+            setIsUpdating(false)
+          }
+          setIsInitialLoading(false)
+        }
       }
     }
   }, [applySyncResult])
@@ -199,10 +212,10 @@ export function useBseAnnouncements(): UseBseAnnouncementsResult {
   }
 
   const fetchLatest = useCallback(() => {
-    if (isFetchingRef.current) return
-
     clearPollTimeout()
-    void performFetch().finally(() => {
+    // Always show spinner on click — even if a silent 0.5s poll is in progress.
+    setIsUpdating(true)
+    void performFetch({ manual: true }).finally(() => {
       if (isMountedRef.current) {
         scheduleNextPoll()
       }

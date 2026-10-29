@@ -9,8 +9,8 @@ export const MAX_ANNOUNCEMENTS = 20
 export const SCRIP_CODE_MIN = 500_000
 export const SCRIP_CODE_MAX = 600_000
 
-/** Polling interval in milliseconds */
-export const POLL_INTERVAL_MS = 1000
+/** Polling interval in milliseconds (0.5s) */
+export const POLL_INTERVAL_MS = 500
 
 /** Duration to highlight newly synced records (ms) */
 export const NEW_RECORD_HIGHLIGHT_MS = 4000
