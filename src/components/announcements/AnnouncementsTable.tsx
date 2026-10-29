@@ -69,8 +69,8 @@ export function AnnouncementsTable({
 
   return (
     <>
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="max-h-[70vh] overflow-auto">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="min-h-0 flex-1 overflow-auto">
           <table className="min-w-[1100px] w-full border-collapse">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50">
