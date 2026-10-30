@@ -1,9 +1,7 @@
 /**
- * Background service worker — opens PDFs via chrome.windows.create.
- *
- * Behavior (unchanged product rules):
- * - On listing (active): new maximized focused window → redirect + OS focus (Ctrl+F works)
- * - While viewing a PDF (!active): new window, not focused → PDF 2/3 without interrupting
+ * Same Chrome window as the listing: new PDF tab + maximize on redirect.
+ * Load speed: open tab active first (full priority), warm HTTP cache, delay
+ * switch-back for background opens so the PDF can start downloading.
  */
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -20,7 +18,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           error: error instanceof Error ? error.message : String(error),
         }),
       )
-    return true // async response
+    return true
   }
 
   if (message.type === 'MAXIMIZE_WINDOW') {
@@ -38,6 +36,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return false
 })
 
+/** How long a background PDF tab stays active so Chrome fetches at full speed. */
+const BACKGROUND_LOAD_KICKSTART_MS = 600
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 async function resolveWindowId(sender) {
   if (sender.tab?.windowId != null) {
     return sender.tab.windowId
@@ -53,11 +58,6 @@ async function handleMaximize(sender) {
   return { ok: true, windowId, maximized: true }
 }
 
-/**
- * Steal OS keyboard focus onto Chrome so shortcuts like Ctrl+F hit the PDF,
- * even if another app was focused when the redirect happened.
- * Windows sometimes ignores a single focus request — do a short double-pass.
- */
 async function forceChromeOsFocus(windowId, tabId) {
   if (windowId == null) return
 
@@ -77,37 +77,63 @@ async function forceChromeOsFocus(windowId, tabId) {
   await chrome.windows.update(windowId, { focused: true })
 }
 
-async function handleMaximizeAndOpenPdf(message, _sender) {
+/** Best-effort: pull PDF into Chrome's HTTP cache before/while the tab navigates. */
+function warmPdfCache(pdfUrl) {
+  return fetch(pdfUrl, {
+    method: 'GET',
+    cache: 'force-cache',
+    credentials: 'omit',
+  }).catch(() => null)
+}
+
+async function handleMaximizeAndOpenPdf(message, sender) {
   const pdfUrl = typeof message.pdfUrl === 'string' ? message.pdfUrl.trim() : ''
   if (!pdfUrl) {
     return { ok: false, error: 'Missing pdfUrl' }
   }
 
+  const windowId = await resolveWindowId(sender)
   const maximize = message.maximize === true
   const active = message.active === true
 
-  // New window + URL in one step — Chrome starts the PDF at full priority.
-  const win = await chrome.windows.create({
+  let previousTabId = sender.tab?.id ?? null
+  if (!active) {
+    const activeTabs = await chrome.tabs.query({ active: true, windowId })
+    previousTabId = activeTabs[0]?.id ?? previousTabId
+  }
+
+  // Warm cache in parallel — do not wait before opening the tab.
+  const cacheWarm = warmPdfCache(pdfUrl)
+
+  // Same listing window: new tab, active so PDF load is high priority.
+  const tab = await chrome.tabs.create({
+    windowId,
     url: pdfUrl,
-    type: 'normal',
-    focused: active,
-    state: maximize || active ? 'maximized' : 'normal',
+    active: true,
   })
 
-  const windowId = win?.id
-  const tabId = win?.tabs?.[0]?.id
+  if (active || maximize) {
+    // Maximize / focus without delaying the tab navigation that already started.
+    void forceChromeOsFocus(windowId, active ? tab.id : null)
+  }
 
-  if (active && windowId != null) {
-    // Redirect path: force Chrome to the foreground (fixes Ctrl+F when another app had focus).
-    await forceChromeOsFocus(windowId, tabId)
-  } else if (maximize && windowId != null) {
-    await chrome.windows.update(windowId, { state: 'maximized' })
+  void cacheWarm
+
+  // Background PDF 2/3: give the tab a short active window to start the download,
+  // then return to the previous tab (usually PDF 1).
+  if (!active && previousTabId != null && previousTabId !== tab.id) {
+    await delay(BACKGROUND_LOAD_KICKSTART_MS)
+    try {
+      await chrome.tabs.update(previousTabId, { active: true })
+    } catch {
+      // Previous tab may have been closed
+    }
   }
 
   return {
     ok: true,
     windowId,
-    tabId,
+    tabId: tab.id,
     maximized: maximize || active,
     active,
   }
