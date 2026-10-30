@@ -15,12 +15,15 @@ window.addEventListener('message', (event) => {
     chrome.runtime.sendMessage(
       { source: EXT_SOURCE, type: 'MAXIMIZE_WINDOW' },
       (response) => {
+        const err = chrome.runtime.lastError
         window.postMessage(
           {
             source: EXT_SOURCE,
             type: 'BSE_MAXIMIZE_WINDOW_RESULT',
             requestId: data.requestId,
-            response: response ?? { ok: false, error: chrome.runtime.lastError?.message },
+            response: err
+              ? { ok: false, error: err.message }
+              : (response ?? { ok: false, error: 'No response from extension' }),
           },
           '*',
         )
@@ -35,17 +38,19 @@ window.addEventListener('message', (event) => {
         source: EXT_SOURCE,
         type: 'MAXIMIZE_AND_OPEN_PDF',
         pdfUrl: data.pdfUrl,
-        // Preserve explicit false so later PDFs open without stealing focus.
         maximize: data.maximize === true,
         active: data.active === true,
       },
       (response) => {
+        const err = chrome.runtime.lastError
         window.postMessage(
           {
             source: EXT_SOURCE,
             type: 'BSE_MAXIMIZE_AND_OPEN_PDF_RESULT',
             requestId: data.requestId,
-            response: response ?? { ok: false, error: chrome.runtime.lastError?.message },
+            response: err
+              ? { ok: false, error: err.message }
+              : (response ?? { ok: false, error: 'No response from extension' }),
           },
           '*',
         )
@@ -54,5 +59,4 @@ window.addEventListener('message', (event) => {
   }
 })
 
-// Let the page know the extension content script is present
 window.postMessage({ source: EXT_SOURCE, type: 'BSE_EXTENSION_READY' }, '*')

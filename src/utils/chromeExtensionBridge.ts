@@ -17,7 +17,7 @@ export type ExtensionOpenPdfResult = {
 function waitForExtensionResult<T>(
   resultType: string,
   requestId: string,
-  timeoutMs = 1500,
+  timeoutMs = 5000,
 ): Promise<T | null> {
   return new Promise((resolve) => {
     const timer = window.setTimeout(() => {
